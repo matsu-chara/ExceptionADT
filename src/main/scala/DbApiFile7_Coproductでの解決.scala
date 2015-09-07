@@ -1,8 +1,7 @@
-import DbApiFile7_ExtensibleExceptionで解決._
-import utils.:->
-import utils.Implicit._
+import DbApiFile6_Coproductでの解決._
+import shapeless._
 
-object DbApiFile7_ExtensibleExceptionで解決 {
+object DbApiFile6_Coproductでの解決 {
 
   // DataBaseException = DbConnectionException | DbResultException
   sealed abstract class DataBaseException(message: String) extends RuntimeException(message)
@@ -39,61 +38,55 @@ object DbApiFile7_ExtensibleExceptionで解決 {
   }
 
   // DbWebException = DataBaseException | WebApiException
-  case class DbWebException(cause: Throwable) extends RuntimeException(cause)
-
-  object DbWebException {
-    implicit val t1 = new :->[DataBaseException, DbWebException] {
-      def cast(a: DataBaseException): DbWebException = DbWebException(a)
-    }
-    implicit val t2 = new :->[WebApiException, DbWebException] {
-      def cast(a: WebApiException): DbWebException = DbWebException(a)
-    }
-  }
+  type DbWebException = DataBaseException :+: WebApiException :+: CNil
 
   // DbFileException = DataBaseException | FileException
-  case class DbFileException(cause: Throwable) extends RuntimeException(cause)
-
-  object DbFileException {
-    implicit val t1 = new :->[DataBaseException, DbFileException] {
-      def cast(a: DataBaseException): DbFileException = DbFileException(a) // DataBaseExceptionへの要素追加に影響を受けない
-    }
-    implicit val t2 = new :->[FileException, DbFileException] {
-      def cast(a: FileException): DbFileException = DbFileException(a)
-    }
-  }
+  type DbFileException = DataBaseException :+: FileException :+: CNil
 
 }
 
-object Main7 {
+object Main6 {
+  object DbWebHandler extends Poly1 {
+    implicit def caseDataBaseException = at[DataBaseException](e => println(s"DataBaseException: ${e.getMessage}"))
+    implicit def caseWebApiException = at[WebApiException] {
+      case e: WebApiTimeoutException => println(s"WebApiTimeoutException: ${e.getMessage}")
+      case e: WebApiConnectionException => println(s"WebApiConnectionException: ${e.getMessage}")
+    }
+  }
+
+  object DbFileHandler extends Poly1 {
+    implicit def caseDataBaseException = at[DataBaseException](e => println(s"DataBaseException: ${e.getMessage}"))
+    implicit def caseFileApiException = at[FileException] {
+      case e: FileReadException => println(s"FileReadException: ${e.getMessage}")
+      case e: FileWriteException => println(s"FileWriteException: ${e.getMessage}")
+    }
+  }
+
+
   def main(args: Array[String]): Unit = {
+    // コンパイル速度が遅い、コンパイルエラーメッセージがわかりにくいなどのデメリットあり
     fetch() match {
       case Right(v) => println(s"result is $v")
-      case Left(e: DbWebException) => e.cause match {
-        case e: DataBaseException => println(s"DataBaseException: ${e.getMessage}") // connectionExceptionもreultExceptionも拾える
-        case e: WebApiTimeoutException => println(s"WebApiTimeoutException: ${e.getMessage}") // ばらして拾うのも可
-        case e: WebApiConnectionException => println(s"WebApiConnectionException: ${e.getMessage}") // ばらして拾うのも可
-      }
+      case Left(e: DbWebException) => e map DbWebHandler
     }
 
     fetch2() match {
       case Right(v) => println(s"result is $v")
-      case Left(e) => e.cause match {
-        case FileReadException(message) => println(message)
-        case FileWriteException(message) => println(message)
-      }
+      case Left(e: DbFileException) => e map DbFileHandler
     }
   }
 
   // DbWebException
   def fetch(): Either[DbWebException, Boolean] = for {
-    data <- DataBase.fetchAll().as[DbWebException].right // as[T]のTには思考停止で統合後の例外を書いておけばOK
-    results <- WebApi.postAll(data).as[DbWebException].right
+    data <- DataBase.fetchAll().left.map(Coproduct[DbWebException](_)).right
+    results <- WebApi.postAll(data).left.map(Coproduct[DbWebException](_)).right
   } yield results.forall(_ == true)
 
   // DbFileException
   def fetch2(): Either[DbFileException, Boolean] = for {
-    data <- DataBase.fetchAll().as[DbFileException].right
-    results <- File.writeAll(data).as[DbFileException].right
+    data <- DataBase.fetchAll().left.map(Coproduct[DbFileException](_)).right
+    results <- File.writeAll(data).left.map(Coproduct[DbFileException](_)).right
   } yield results.forall(_ == true)
+
 }
 

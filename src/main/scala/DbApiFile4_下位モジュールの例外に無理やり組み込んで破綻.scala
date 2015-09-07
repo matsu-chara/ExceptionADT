@@ -43,7 +43,6 @@ object DbApiFile4_下位モジュールの例外に無理やり組み込んで�
 
 }
 
-
 object Main4 {
   def main(args: Array[String]): Unit = {
     println(fetch())

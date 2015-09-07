@@ -55,7 +55,6 @@ object Main5 {
       case Left(DbWebWebApiException(e: WebApiTimeoutException)) => println(s"WebApiTimeoutException: ${e.getMessage}") // バラバラでも拾える（依存の依存が出てくるたびにネストする）
       case Left(DbWebWebApiException(e: WebApiConnectionException)) => println(s"WebApiConnectionException: ${e.getMessage}") // バラバラでも拾える（依存の依存が出てくるたびにネストする）
     }
-    println(fetch())
   }
 
   // DbWebException
