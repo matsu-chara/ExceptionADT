@@ -55,7 +55,7 @@ object DbApiFile6_ExtensibleExceptionで解決 {
 
   object DbFileException {
     implicit val t1 = new :->[DataBaseException, DbFileException] {
-      def cast(a: DataBaseException): DbFileException = DbFileException(a)
+      def cast(a: DataBaseException): DbFileException = DbFileException(a) // DataBaseExceptionへの要素追加に影響を受けない
     }
     implicit val t2 = new :->[FileException, DbFileException] {
       def cast(a: FileException): DbFileException = DbFileException(a)
@@ -86,7 +86,7 @@ object Main6 {
 
   // DbWebException
   def fetch(): Either[DbWebException, Boolean] = for {
-    data <- DataBase.fetchAll().as[DbWebException].right
+    data <- DataBase.fetchAll().as[DbWebException].right // as[T]のTには思考停止で統合後の例外を書いておけばOK
     results <- WebApi.postAll(data).as[DbWebException].right
   } yield results.forall(_ == true)
 
