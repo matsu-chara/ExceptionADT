@@ -11,8 +11,13 @@ object DbApiFile7_ExtensibleExceptionで解決 {
 
   object DataBase {
     def fetchAll(): Either[DataBaseException, Seq[String]] = {
-      //      Left(new DbConnectionException("can not connect to host:port"))
-      Right(Seq("a"))
+      Left(DbConnectionException("can not connect to host:port"))
+      // Right(Seq("a"))
+    }
+
+    def fetchAllWithAuth(): Either[DbAuthException, Seq[String]] = {
+      Left(DbPasswordIncorrectException("can not connect to host:port password is incorrect"))
+      //Right(Seq("a"))
     }
   }
 
@@ -58,6 +63,10 @@ object DbApiFile7_ExtensibleExceptionで解決 {
     implicit val t1 = Transform.castable[DataBaseException, DbFileException]
     implicit val t2 = Transform.castable[FileException, DbFileException]
   }
+
+  abstract class DbAuthException(message: String) extends DataBaseException(message)
+  case class DbUserNotExistsException(message: String) extends DbAuthException(message)
+  case class DbPasswordIncorrectException(message: String) extends DbAuthException(message)
 }
 
 object Main7 {
@@ -74,6 +83,8 @@ object Main7 {
     fetch2() match {
       case Right(v) => println(s"result is $v")
       case Left(e) => e.cause match {
+        case e: DbPasswordIncorrectException => println("DB Auth error. password is incorrect")
+        case e: DataBaseException => println(s"DataBaseException: ${e.getMessage}")
         case FileReadException(message) => println(message)
         case FileWriteException(message) => println(message)
       }
@@ -82,13 +93,13 @@ object Main7 {
 
   // DbWebException
   def fetch(): Either[DbWebException, Boolean] = for {
-    data <- DataBase.fetchAll().as[DbWebException].right // as[T]のTには思考停止で統合後の例外を書いておけばOK
+    data <- DataBase.fetchAllWithAuth().as[DbWebException].right // as[T]のTには思考停止で統合後の例外を書いておけばOK
     results <- WebApi.postAll(data).as[DbWebException].right
   } yield results.forall(_ == true)
 
   // DbFileException
   def fetch2(): Either[DbFileException, Boolean] = for {
-    data <- DataBase.fetchAll().as[DbFileException].right
+    data <- DataBase.fetchAllWithAuth().as[DbFileException].right
     results <- File.writeAll(data).as[DbFileException].right
   } yield results.forall(_ == true)
 }

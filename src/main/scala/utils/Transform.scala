@@ -3,16 +3,9 @@ package utils
 import scala.language.experimental.macros
 import scala.reflect.macros.whitebox.Context
 
-trait :->[A, B] {
+trait :->[-A, +B] {
   def cast(a: A): B
 }
-
-object :-> {
-  implicit def superclass[A, B >: A] = new :->[A, B] {
-    def cast(a: A): B = a
-  }
-}
-
 
 object Transform {
   def castable[A, B]: A :-> B = macro castableImpl[A, B]
