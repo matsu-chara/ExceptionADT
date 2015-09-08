@@ -10,5 +10,6 @@ resolvers ++= Seq(
 )
 
 libraryDependencies ++= Seq(
-  "com.chuusai" %% "shapeless" % "2.2.5"
+  "com.chuusai" %% "shapeless" % "2.2.5",
+  "org.scala-lang" % "scala-reflect" % scalaVersion.value
 )

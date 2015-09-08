@@ -1,5 +1,5 @@
 import DbApiFile7_ExtensibleExceptionで解決._
-import utils.:->
+import utils.{Transform, :->}
 import utils.Implicit._
 
 object DbApiFile7_ExtensibleExceptionで解決 {
@@ -52,16 +52,12 @@ object DbApiFile7_ExtensibleExceptionで解決 {
 
   // DbFileException = DataBaseException | FileException
   case class DbFileException(cause: Throwable) extends RuntimeException(cause)
-
+  
+  // マクロを使うとこのように書ける
   object DbFileException {
-    implicit val t1 = new :->[DataBaseException, DbFileException] {
-      def cast(a: DataBaseException): DbFileException = DbFileException(a) // DataBaseExceptionへの要素追加に影響を受けない
-    }
-    implicit val t2 = new :->[FileException, DbFileException] {
-      def cast(a: FileException): DbFileException = DbFileException(a)
-    }
+    implicit val t1 = Transform.castable[DataBaseException, DbFileException]
+    implicit val t2 = Transform.castable[FileException, DbFileException]
   }
-
 }
 
 object Main7 {
