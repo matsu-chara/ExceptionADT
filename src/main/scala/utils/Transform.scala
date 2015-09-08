@@ -7,6 +7,21 @@ trait :->[-A, +B] {
   def cast(a: A): B
 }
 
+object :-> {
+  implicit def self[A] = new :->[A, A] {
+    def cast(a: A): A = a
+  }
+
+  implicit def superclass[A, B >: A] = new :->[A, B] {
+    def cast(a: A): B = a
+  }
+
+  implicit def transitive[A, B, C](implicit L2: A :-> B, L3: B :-> C) =  new :->[A, C] {
+    def cast(a: A): C = L3.cast(L2.cast(a))
+  }
+}
+
+
 object Transform {
   def castable[A, B]: A :-> B = macro castableImpl[A, B]
 

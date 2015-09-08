@@ -1,8 +1,8 @@
-import DbApiFile7_ExtensibleExceptionで解決._
+import DbApiFile8_ExtensibleExceptionの実験._
 import utils.{Transform, :->}
 import utils.Implicit._
 
-object DbApiFile7_ExtensibleExceptionで解決 {
+object DbApiFile8_ExtensibleExceptionの実験 {
 
   // DataBaseException = DbConnectionException | DbResultException
   sealed abstract class DataBaseException(message: String) extends RuntimeException(message)
@@ -13,6 +13,11 @@ object DbApiFile7_ExtensibleExceptionで解決 {
     def fetchAll(): Either[DataBaseException, Seq[String]] = {
       Left(DbConnectionException("can not connect to host:port"))
       // Right(Seq("a"))
+    }
+
+    def fetchAllWithAuth(): Either[DbAuthException, Seq[String]] = {
+      Left(DbPasswordIncorrectException("can not connect to host:port password is incorrect"))
+      //Right(Seq("a"))
     }
   }
 
@@ -50,17 +55,20 @@ object DbApiFile7_ExtensibleExceptionで解決 {
     }
   }
 
-  // DbFileException = DataBaseException | FileException
-  case class DbFileException(cause: Throwable) extends RuntimeException(cause)
+  // サブタイプで関連付けされたDbWebExceptionから見て２階層下のADT
+  abstract class DbAuthException(message: String) extends DataBaseException(message)
+  case class DbUserNotExistsException(message: String) extends DbAuthException(message)
+  case class DbPasswordIncorrectException(message: String) extends DbAuthException(message)
 
-  // マクロを使うとこのように書ける
-  object DbFileException {
-    implicit val t1 = Transform.castable[DataBaseException, DbFileException]
-    implicit val t2 = Transform.castable[FileException, DbFileException]
+  // (DbExceptionが)型クラスで関連付けされたDbWebFileExceptionから見て２階層下のADTになる
+  case class DbWebFileException(cause: Throwable) extends RuntimeException(cause)
+  object DbWebFileException {
+    implicit val t1 = Transform.castable[DbWebException, DbWebFileException]
+    implicit val t2 = Transform.castable[FileException, DbWebFileException]
   }
 }
 
-object Main7 {
+object Main8 {
   def main(args: Array[String]): Unit = {
     fetch() match {
       case Right(v) => println(s"result is $v")
@@ -74,7 +82,7 @@ object Main7 {
     fetch2() match {
       case Right(v) => println(s"result is $v")
       case Left(e) => e.cause match {
-        case e: DataBaseException => println(s"DataBaseException: ${e.getMessage}")
+        case e: DbWebException => println(s"DataBaseException: ${e.getMessage}")
         case FileReadException(message) => println(message)
         case FileWriteException(message) => println(message)
       }
@@ -83,14 +91,17 @@ object Main7 {
 
   // DbWebException
   def fetch(): Either[DbWebException, Boolean] = for {
-    data <- DataBase.fetchAll.as[DbWebException].right // as[T]のTには思考停止で統合後の例外を書いておけばOK
+    data <- DataBase.fetchAllWithAuth().as[DbWebException].right // as[T]のTには思考停止で統合後の例外を書いておけばOK
     results <- WebApi.postAll(data).as[DbWebException].right
   } yield results.forall(_ == true)
 
-  // DbFileException
-  def fetch2(): Either[DbFileException, Boolean] = for {
-    data <- DataBase.fetchAll().as[DbFileException].right
-    results <- File.writeAll(data).as[DbFileException].right
-  } yield results.forall(_ == true)
+  // DbWebFileException
+  def fetch2(): Either[DbWebFileException, Boolean] = {
+    implicit val x = DbWebException.t1 // implicitパラメータの解決に必要
+    for {
+      data <- DataBase.fetchAll().as[DbWebFileException].right
+      results <- File.writeAll(data).as[DbWebFileException].right
+    } yield true //results.forall(_ == true)
+  }
 }
 
